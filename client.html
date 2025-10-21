@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Cliente de Escritorio Remoto</title>
+  <style>
+  body { 
+    background-color: #282c34;
+    margin: 0; 
+    display: flex;
+    justify-content: center; 
+    align-items: center; 
+    height: 100vh;
+    font-family: sans-serif;
+    color: white;
+  }
+  img { 
+    max-width: 100%; 
+    max-height: 100%; 
+    cursor: crosshair; 
+  }
+  #login-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2em;
+    background-color: #21252b;
+    border-radius: 8px;
+  }
+  #connection-form input {
+    display: block;
+    width: 250px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    border: 1px solid #666;
+  }
+  #connection-form button {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    background-color: #61afef;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div id="login-box">
+    <h1>Conectar al Agente</h1>
+    <form id="connection-form">
+      <input type="text" id="ip-input" placeholder="Dirección IP del Agente" value="172.18.0.19" required>
+      <input type="password" id="password-input" placeholder="Contraseña" required>
+      <button type="submit">Conectar</button>
+    </form>
+  </div>
+    <h1 id="status" style="color: white;">Conectando...</h1>
+  <img id="screen" style="display: none;" />
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+  const loginBox = document.getElementById('login-box');
+  const connectionForm = document.getElementById('connection-form');
+  const ipInput = document.getElementById('ip-input');
+  const passwordInput = document.getElementById('password-input');
+
+  const screen = document.getElementById('screen');
+  const status = document.getElementById('status');
+// Este evento se dispara cuando el usuario presiona el botón "Conectar"
+  connectionForm.addEventListener('submit', (event) => {
+    // Prevenimos que el formulario recargue la página (muy importante)
+    event.preventDefault();
+
+    const agentIp = ipInput.value;
+    const password = passwordInput.value;
+
+    loginBox.style.display = 'none'; // Ocultamos el formulario
+    status.textContent = `Conectando a ${agentIp}...`;
+    status.style.display = 'block'; // Mostramos el estado
+
+    const socket = io(`http://${agentIp}:3000`);
+
+    socket.on('connect', () => {
+      status.textContent = 'Conectado. Autenticando...';
+      socket.emit('autenticacion', { contraseña: password });
+    });
+
+    socket.on('autenticacion_exitosa', () => {
+      status.style.display = 'none';
+      screen.style.display = 'block';
+
+      // Una vez autenticados, activamos toda la lógica de control
+      socket.on('image', (base64Image) => {
+        screen.src = 'data:image/jpeg;base64,' + base64Image;
+      });
+      screen.addEventListener('mousemove', (e) => {
+        socket.emit('mouse_move', { x: e.offsetX / screen.offsetWidth, y: e.offsetY / screen.offsetHeight });
+      });
+      screen.addEventListener('mousedown', (e) => {
+        socket.emit('mouse_click', { x: e.offsetX / screen.offsetWidth, y: e.offsetY / screen.offsetHeight, button: 'left' });
+      });
+      screen.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        socket.emit('mouse_click', { x: e.offsetX / screen.offsetWidth, y: e.offsetY / screen.offsetHeight, button: 'right' });
+      });
+      screen.addEventListener('dblclick', (e) => {
+        socket.emit('mouse_click', { x: e.offsetX / screen.offsetWidth, y: e.offsetY / screen.offsetHeight, button: 'double' });
+      });
+      screen.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        socket.emit('mouse_scroll', { deltaY: e.deltaY });
+      });
+      window.addEventListener('keydown', (e) => {
+        e.preventDefault();
+        socket.emit('key_press', { key: e.key });
+      });
+    });
+
+    socket.on('autenticacion_fallida', () => {
+      socket.disconnect();
+      screen.style.display = 'none';
+      loginBox.style.display = 'flex';
+      status.textContent = 'Contraseña incorrecta.';
+    });
+
+    socket.on('connect_error', () => {
+        socket.disconnect();
+        screen.style.display = 'none';
+        loginBox.style.display = 'flex';
+        status.textContent = 'Error: No se pudo conectar al agente.';
+    });
+
+    socket.on('disconnect', () => {
+      if (screen.style.display === 'block') { // Solo si ya estábamos conectados
+        screen.style.display = 'none';
+        loginBox.style.display = 'flex';
+        status.textContent = 'Desconectado. Ingrese sus credenciales.';
+      }
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "name": "remote-desktop-poc",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon agent.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "nodemon": "^3.1.10",
+    "robotjs": "^0.6.0",
+    "sharp": "^0.34.4",
+    "socket.io": "^4.8.1"
+  }
+}
